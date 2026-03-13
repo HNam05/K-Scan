@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mae Thai - Kassenbon Scanner</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #1a1a2e, #16213e);
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f5af19, #f12711);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .status {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .status-dot.green { background: #00e676; box-shadow: 0 0 8px #00e676; }
+        .status-dot.red   { background: #ff1744; box-shadow: 0 0 8px #ff1744; }
+
+        /* Main Layout */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            padding: 24px 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Card Style */
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(8px);
+        }
+        .card h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #a0a0a0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Dropzone */
+        .dropzone {
+            border: 2px dashed rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 16px;
+        }
+        .dropzone:hover, .dropzone.dragover {
+            border-color: #f5af19;
+            background: rgba(245, 175, 25, 0.05);
+        }
+        .dropzone .icon { font-size: 48px; margin-bottom: 12px; }
+        .dropzone p { color: #888; font-size: 14px; }
+
+        /* Image Preview */
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            display: none;
+            margin: 12px auto;
+            object-fit: contain;
+        }
+        .image-preview.visible { display: block; }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 12px;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-scan {
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            color: #000;
+        }
+        .btn-scan:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,176,155,0.3); }
+        .btn-save {
+            background: linear-gradient(135deg, #f5af19, #f12711);
+            color: #fff;
+        }
+        .btn-save:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(241,39,17,0.3); }
+        .btn-export {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        .btn-export:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(102,126,234,0.3); }
+
+        /* Form Fields */
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #888;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #f5af19;
+        }
+
+        /* OCR Raw Text */
+        .raw-text {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: #aaa;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 12px;
+            display: none;
+        }
+        .raw-text.visible { display: block; }
+
+        /* Notification Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.4s ease;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: linear-gradient(135deg, #00b09b, #96c93d); color: #000; }
+        .toast.error   { background: linear-gradient(135deg, #ff416c, #ff4b2b); color: #fff; }
+
+        /* Receipt Counter */
+        .counter {
+            background: rgba(245,175,25,0.1);
+            border: 1px solid rgba(245,175,25,0.2);
+            border-radius: 10px;
+            padding: 12px 16px;
+            text-align: center;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        .counter strong { color: #f5af19; font-size: 20px; }
+
+        /* Spinner */
+        .spinner {
+            display: none;
+            width: 24px; height: 24px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #f5af19;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 12px auto;
+        }
+        .spinner.visible { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* History Table */
+        .history-section {
+            padding: 0 32px 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .history-table th {
+            background: rgba(255,255,255,0.06);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        .history-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .history-table tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+    <h1>🍜 Mae Thai — Kassenbon Scanner</h1>
+    <div class="status">
+        <span>
+            <span class="status-dot {{ 'green' if ocr_available else 'red' }}"></span>
+            OCR {{ 'bereit' if ocr_available else 'nicht verfügbar' }}
+        </span>
+        <span id="receiptBadge">📋 <strong id="receiptCount">{{ receipt_count }}</strong> Belege</span>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+    <!-- LEFT: Image Upload + OCR -->
+    <div class="card">
+        <h2>📄 Kassenbon scannen</h2>
+
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+            <div class="icon">📸</div>
+            <p>Kassenbon-Foto hier ablegen<br>oder klicken zum Auswählen</p>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" style="display:none">
+
+        <img class="image-preview" id="imagePreview" alt="Vorschau">
+
+        <button class="btn btn-scan" id="btnScan" disabled onclick="scanImage()">
+            🔍 Text erkennen (OCR)
+        </button>
+
+        <div class="spinner" id="spinner"></div>
+
+        <div class="raw-text" id="rawText"></div>
+    </div>
+
+    <!-- RIGHT: Extracted Data -->
+    <div class="card">
+        <h2>✏️ Erkannte Daten prüfen</h2>
+
+        <div class="form-group">
+            <label>Händler</label>
+            <input type="text" id="fieldHaendler" placeholder="z.B. Lidl, Kaufland, Metro">
+        </div>
+        <div class="form-group">
+            <label>Datum</label>
+            <input type="text" id="fieldDatum" placeholder="TT.MM.JJJJ">
+        </div>
+        <div class="form-group">
+            <label>Brutto (€)</label>
+            <input type="text" id="fieldBrutto" placeholder="Gesamtbetrag">
+        </div>
+        <div class="form-group">
+            <label>Netto (€)</label>
+            <input type="text" id="fieldNetto" placeholder="Ohne Steuer">
+        </div>
+        <div class="form-group">
+            <label>Steuer 7% (€)</label>
+            <input type="text" id="fieldSteuer7" placeholder="MwSt Lebensmittel">
+        </div>
+        <div class="form-group">
+            <label>Steuer 19% (€)</label>
+            <input type="text" id="fieldSteuer19" placeholder="MwSt Sonstiges">
+        </div>
+        <div class="form-group">
+            <label>Kategorie</label>
+            <input type="text" id="fieldKategorie" value="Lebensmittel">
+        </div>
+
+        <button class="btn btn-save" id="btnSave" disabled onclick="saveReceipt()">
+            ✅ Beleg bestätigen & speichern
+        </button>
+
+        <button class="btn btn-export" onclick="exportExcel()">
+            📊 Monats-Excel exportieren
+        </button>
+
+        <div class="counter">
+            <strong id="counterNum">{{ receipt_count }}</strong> Belege gespeichert
+        </div>
+    </div>
+</div>
+
+<!-- History -->
+<div class="history-section">
+    <div class="card">
+        <h2>📋 Gespeicherte Belege</h2>
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Händler</th>
+                    <th>Brutto</th>
+                    <th>Netto</th>
+                    <th>MwSt 7%</th>
+                    <th>MwSt 19%</th>
+                    <th>Kategorie</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+    let selectedFile = null;
+
+    // === Drag & Drop ===
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+        selectedFile = file;
+        const preview = document.getElementById('imagePreview');
+        preview.src = URL.createObjectURL(file);
+        preview.classList.add('visible');
+        dropzone.querySelector('p').textContent = file.name;
+        document.getElementById('btnScan').disabled = false;
+    }
+
+    // === OCR Scan ===
+    async function scanImage() {
+        if (!selectedFile) return;
+
+        const spinner = document.getElementById('spinner');
+        const btnScan = document.getElementById('btnScan');
+        spinner.classList.add('visible');
+        btnScan.disabled = true;
+        btnScan.textContent = '⏳ Wird gescannt...';
+
+        const formData = new FormData();
+        formData.append('image', selectedFile);
+
+        try {
+            const res = await fetch('/api/scan', { method: 'POST', body: formData });
+            const result = await res.json();
+
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+
+            // Felder befüllen
+            document.getElementById('fieldHaendler').value = result.data['Händler'] || '';
+            document.getElementById('fieldDatum').value = result.data['Datum'] || '';
+            document.getElementById('fieldBrutto').value = result.data['Brutto'] || '';
+            document.getElementById('fieldNetto').value = result.data['Netto'] || '';
+            document.getElementById('fieldSteuer7').value = result.data['Steuer_7'] || '';
+            document.getElementById('fieldSteuer19').value = result.data['Steuer_19'] || '';
+            document.getElementById('fieldKategorie').value = result.data['Kategorie'] || 'Lebensmittel';
+
+            // Rohtext anzeigen
+            const rawTextEl = document.getElementById('rawText');
+            rawTextEl.textContent = result.raw_text;
+            rawTextEl.classList.add('visible');
+
+            document.getElementById('btnSave').disabled = false;
+            showToast('Text erfolgreich erkannt!', 'success');
+
+        } catch (err) {
+            showToast('Fehler: ' + err.message, 'error');
+        } finally {
+            spinner.classList.remove('visible');
+            btnScan.disabled = false;
+            btnScan.textContent = '🔍 Text erkennen (OCR)';
+        }
+    }
+
+    // === Save Receipt ===
+    async function saveReceipt() {
+        const data = {
+            'Händler': document.getElementById('fieldHaendler').value,
+            'Datum': document.getElementById('fieldDatum').value,
+            'Brutto': document.getElementById('fieldBrutto').value,
+            'Netto': document.getElementById('fieldNetto').value,
+            'Steuer_7': document.getElementById('fieldSteuer7').value,
+            'Steuer_19': document.getElementById('fieldSteuer19').value,
+            'Kategorie': document.getElementById('fieldKategorie').value,
+        };
+
+        try {
+            const res = await fetch('/api/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            const result = await res.json();
+
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+
+            showToast(`Beleg gespeichert! (${result.filename})`, 'success');
+            document.getElementById('receiptCount').textContent = result.receipt_count;
+            document.getElementById('counterNum').textContent = result.receipt_count;
+
+            // Felder leeren
+            ['fieldHaendler','fieldDatum','fieldBrutto','fieldNetto','fieldSteuer7','fieldSteuer19'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('fieldKategorie').value = 'Lebensmittel';
+            document.getElementById('btnSave').disabled = true;
+            document.getElementById('rawText').classList.remove('visible');
+            document.getElementById('imagePreview').classList.remove('visible');
+            dropzone.querySelector('p').textContent = 'Kassenbon-Foto hier ablegen\noder klicken zum Auswählen';
+            selectedFile = null;
+
+            loadHistory();
+        } catch (err) {
+            showToast('Fehler: ' + err.message, 'error');
+        }
+    }
+
+    // === Export ===
+    async function exportExcel() {
+        try {
+            const res = await fetch('/api/export', { method: 'POST' });
+            const result = await res.json();
+
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+
+            showToast(`Excel erstellt: ${result.file}`, 'success');
+            // Download anbieten
+            window.open('/download/' + result.file, '_blank');
+        } catch (err) {
+            showToast('Fehler: ' + err.message, 'error');
+        }
+    }
+
+    // === History ===
+    async function loadHistory() {
+        try {
+            const res = await fetch('/api/receipts');
+            const receipts = await res.json();
+            const tbody = document.getElementById('historyBody');
+            tbody.innerHTML = '';
+
+            receipts.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${r['Datum'] || '-'}</td>
+                    <td>${r['Händler'] || '-'}</td>
+                    <td>${r['Brutto'] || '0'} €</td>
+                    <td>${r['Netto'] || '0'} €</td>
+                    <td>${r['Steuer_7'] || '0'} €</td>
+                    <td>${r['Steuer_19'] || '0'} €</td>
+                    <td>${r['Kategorie'] || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error('History laden fehlgeschlagen:', err);
+        }
+    }
+
+    // === Toast ===
+    function showToast(msg, type) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = 'toast ' + type + ' show';
+        setTimeout(() => toast.classList.remove('show'), 4000);
+    }
+
+    // Initial load
+    loadHistory();
+</script>
+
+</body>
+</html>
