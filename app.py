@@ -205,4 +205,11 @@ if __name__ == "__main__":
     print("  Mae Thai - Kassenbon Scanner")
     print("  Öffnen Sie: http://localhost:5000")
     print("=" * 50)
+    
+    # Browser automatisch öffnen (nur im Hauptprozess, nicht beim Reloader)
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        import webbrowser
+        from threading import Timer
+        Timer(1.5, lambda: webbrowser.open("http://127.0.0.1:5000")).start()
+    
     app.run(debug=True, port=5000, host="0.0.0.0")

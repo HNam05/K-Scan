@@ -13,3 +13,6 @@ belege/
 # OS
 .DS_Store
 Thumbs.db
+tmp_ocr_*.txt
+*.xlsx
+*.json

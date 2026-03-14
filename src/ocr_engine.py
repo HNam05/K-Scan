@@ -127,9 +127,9 @@ def _score_text(text):
         # Bonus fuer erkannte Geldbetraege (X,XX oder X.XX)
         import re
         amounts = re.findall(r'\d+[.,]\d{2}', line)
-        score += len(amounts) * 10
+        score = float(score) + (len(amounts) * 10.0)
 
-    return score
+    return float(score)
 
 
 class ReceiptOCR:
@@ -141,40 +141,73 @@ class ReceiptOCR:
         return self.tesseract_path is not None
 
     def extract_text(self, image_path):
-        """Erkennt Text aus einem Kassenbon-Foto. Probiert mehrere Strategien."""
+        """Erkennt Text aus einem Kassenbon-Foto. Probiert mehrere Strategien und Rotationen."""
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Bild nicht gefunden: {image_path}")
 
         if not self.is_available():
-            raise RuntimeError(
-                "Tesseract OCR ist nicht installiert!\n\n"
-                "Bitte fuehren Sie setup.bat aus oder installieren Sie Tesseract manuell:\n"
-                "https://github.com/UB-Mannheim/tesseract/releases"
-            )
+            raise RuntimeError("Tesseract OCR ist nicht installiert!")
 
-        # Drei vorverarbeitete Versionen erstellen
-        temp_paths = _preprocess_image(image_path)
+        # 1. Automatischer Rotations-Check (OSD)
+        angle = self._get_orientation(image_path)
+        
+        # Bild laden und ggf. rotieren
+        img = Image.open(image_path)
+        img = ImageOps.exif_transpose(img)
+        if angle != 0:
+            img = img.rotate(-angle, expand=True)
+            temp_rotated = image_path + "_rotated.png"
+            img.save(temp_rotated)
+            image_path_to_use = temp_rotated
+        else:
+            image_path_to_use = image_path
 
         try:
+            # Drei vorverarbeitete Versionen erstellen
+            temp_paths = _preprocess_image(image_path_to_use)
+            
             best_text = ""
-            best_score = -1
+            best_score = -1.0
 
             # Fuer jede Version: Verschiedene PSM-Modi probieren
             for temp_path in temp_paths:
-                for psm in ["4", "6"]:
+                for psm in ["4", "6", "3", "11"]:
                     text = self._run_tesseract(temp_path, lang="deu", psm=psm)
                     if text:
-                        score = _score_text(text)
-                        if score > best_score:
-                            best_score = score
+                        s_val = float(_score_text(text))
+                        if s_val > float(best_score):
+                            best_score = s_val
                             best_text = text
+
+            # Fallback: Wenn Score extrem niedrig, 90 Grad Drehungen probieren
+            if best_score < 50:
+                for fallback_angle in [90, 270]:
+                    rotated_img = img.rotate(fallback_angle, expand=True)
+                    f_path = image_path + f"_fallback_{fallback_angle}.png"
+                    rotated_img.save(f_path)
+                    
+                    f_temp_paths = _preprocess_image(f_path)
+                    for ftp in f_temp_paths:
+                        text = self._run_tesseract(ftp, lang="deu", psm="6")
+                        if text:
+                            s_val = float(_score_text(text))
+                            if s_val > float(best_score):
+                                best_score = s_val
+                                best_text = text
+                    
+                    # Cleanup fallback files
+                    for p in f_temp_paths:
+                        if os.path.exists(p): os.remove(p)
+                    if os.path.exists(f_path): os.remove(f_path)
 
             return best_text.strip()
 
         finally:
-            for p in temp_paths:
-                if os.path.exists(p):
-                    os.remove(p)
+            if 'temp_paths' in locals():
+                for p in temp_paths:
+                    if os.path.exists(p): os.remove(p)
+            if angle != 0 and os.path.exists(image_path_to_use):
+                os.remove(image_path_to_use)
 
     def _run_tesseract(self, image_path, lang="deu", psm="4"):
         """Fuehrt Tesseract als Subprocess aus, encoding-sicher."""
@@ -182,7 +215,7 @@ class ReceiptOCR:
             self.tesseract_path,
             image_path,
             "stdout",
-            "--psm", psm,
+            "--psm", str(psm),
         ]
         if lang:
             cmd.extend(["-l", lang])
@@ -202,6 +235,28 @@ class ReceiptOCR:
 
         except (subprocess.TimeoutExpired, Exception):
             return None
+
+    def _get_orientation(self, image_path):
+        """Erkennt die Rotation des Bildes mittels Tesseract OSD."""
+        cmd = [
+            self.tesseract_path,
+            image_path,
+            "stdout",
+            "--psm", "0",
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                # Suche nach "Rotate: 90" etc.
+                for line in result.stdout.split('\n'):
+                    if "Rotate:" in line:
+                        try:
+                            return int(line.split(":")[1].strip())
+                        except ValueError:
+                            pass
+        except Exception:
+            pass
+        return 0
 
 
 if __name__ == "__main__":

@@ -3,328 +3,453 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mae Thai - Batch Kassenbon Scanner</title>
+    <title>K-Scan Pro — Premium Receipt Intelligence</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap');
+
+        :root {
+            --bg-black: #000000;
+            --card-bg: #0c1010;
+            --accent-gold: #B88B4B;
+            --accent-teal: #00FFD1;
+            --text-primary: #FFFFFF;
+            --text-secondary: #999999;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --gradient-gold: linear-gradient(135deg, #B88B4B, #8A6836);
+            --gradient-dark: linear-gradient(180deg, rgba(12, 16, 16, 0.8), rgba(0, 0, 0, 1));
+            --radius-pill: 9999px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #1a1a2e, #16213e);
-            color: #e0e0e0;
+            background-color: var(--bg-black);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(184, 139, 75, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 90% 80%, rgba(0, 255, 209, 0.05) 0%, transparent 50%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+            color: var(--text-primary);
             min-height: 100vh;
+            overflow-x: hidden;
+            letter-spacing: -0.01em;
         }
 
-        /* Header */
-        .header {
-            background: rgba(255,255,255,0.03);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            padding: 16px 32px;
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; }
+
+        /* Header / Navigation */
+        .nav {
+            position: sticky;
+            top: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(12, 16, 16, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-pill);
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 40px;
         }
-        .header h1 {
-            font-size: 22px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #f5af19, #f12711);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+
+        .nav h1 {
+            font-size: 18px;
+            font-weight: 300;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .header .status {
+
+        .nav .status {
             display: flex;
             align-items: center;
             gap: 16px;
-            font-size: 13px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
+
         .status-dot {
             width: 8px; height: 8px;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 6px;
         }
-        .status-dot.green { background: #00e676; box-shadow: 0 0 8px #00e676; }
-        .status-dot.red   { background: #ff1744; box-shadow: 0 0 8px #ff1744; }
+        .status-dot.green { background: var(--accent-teal); box-shadow: 0 0 10px var(--accent-teal); }
+        .status-dot.red { background: #ff4b2b; box-shadow: 0 0 10px #ff4b2b; }
 
         /* Main Layout */
-        .main {
-            display: grid;
-            grid-template-columns: 350px 1fr 400px;
-            gap: 20px;
-            padding: 20px;
-            max-width: 1800px;
+        .container {
+            max-width: 1600px;
             margin: 0 auto;
+            padding: 0 20px 40px;
+            display: grid;
+            grid-template-columns: 380px 1fr 420px;
+            gap: 24px;
         }
 
-        /* Card Style */
-        .card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 16px;
-            padding: 20px;
-            backdrop-filter: blur(8px);
+        /* Modern Card Interface */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
+            transition: var(--transition);
         }
-        .card h2 {
-            font-size: 14px;
+
+        .glass-card:hover {
+            border-color: rgba(184, 139, 75, 0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .glass-card h2 {
+            font-size: 12px;
             font-weight: 600;
-            margin-bottom: 12px;
-            color: #a0a0a0;
+            color: var(--accent-gold);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.15em;
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
 
         /* Dropzone */
-        .dropzone {
-            border: 2px dashed rgba(255,255,255,0.15);
-            border-radius: 12px;
-            padding: 30px 10px;
+        .drop-area {
+            border: 1px dashed var(--border-color);
+            border-radius: 20px;
+            padding: 40px 20px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 12px;
+            transition: var(--transition);
+            background: rgba(255,255,255,0.01);
+            margin-bottom: 20px;
         }
-        .dropzone:hover, .dropzone.dragover {
-            border-color: #f5af19;
-            background: rgba(245, 175, 25, 0.05);
-        }
-        .dropzone .icon { font-size: 32px; margin-bottom: 8px; }
-        .dropzone p { color: #888; font-size: 13px; }
 
-        /* Queue List */
-        .queue-list {
+        .drop-area:hover {
+            background: rgba(184, 139, 75, 0.05);
+            border-color: var(--accent-gold);
+        }
+
+        .drop-area .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.8; }
+        .drop-area p { color: var(--text-secondary); font-size: 13px; font-weight: 400; }
+
+        /* Queue Styling */
+        .queue-items {
             flex-grow: 1;
             overflow-y: auto;
-            max-height: 500px;
-            margin-bottom: 12px;
+            max-height: 480px;
+            margin-bottom: 20px;
+            padding-right: 4px;
         }
-        .queue-item {
+
+        .queue-items::-webkit-scrollbar { width: 4px; }
+        .queue-items::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+        .q-item {
             background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 8px;
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             cursor: pointer;
-            transition: background 0.2s;
+            border: 1px solid transparent;
+            transition: var(--transition);
         }
-        .queue-item:hover { background: rgba(255,255,255,0.06); }
-        .queue-item.active { border-color: #f5af19; background: rgba(245, 175, 25, 0.08); }
-        .queue-item.done { border-color: rgba(0, 230, 118, 0.3); }
-        .queue-item img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
-        .queue-item .info { flex-grow: 1; min-width: 0; }
-        .queue-item .info .name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .queue-item .info .status { font-size: 10px; color: #888; }
-        .queue-item .status-icon { font-size: 14px; }
 
-        /* Detail View */
-        .detail-view {
+        .q-item:hover { background: rgba(255,255,255,0.06); }
+        .q-item.active { border-color: var(--accent-gold); background: rgba(184, 139, 75, 0.1); }
+        .q-item.done { border-color: rgba(0, 255, 209, 0.2); }
+        .q-item.scanning { border-color: rgba(184, 139, 75, 0.5); }
+
+        .q-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 12px; }
+        .q-item .meta { flex-grow: 1; min-width: 0; }
+        .q-item .meta .filename { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .q-item .meta .status-text { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+        /* Preview Display */
+        .preview-box {
+            background: #050505;
+            border-radius: 20px;
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .preview-box img {
+            max-width: 95%;
+            max-height: 75vh;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        .text-log {
+            margin-top: 20px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .text-log pre {
+            font-family: 'Inter', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            max-height: 120px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        /* Professional Inputs */
+        .form-layout {
             display: flex;
             flex-direction: column;
-            gap: 16px;
-        }
-        .image-container {
-            flex-grow: 1;
-            background: rgba(0,0,0,0.2);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.05);
-            min-height: 400px;
-        }
-        .image-container img {
-            max-width: 100%;
-            max-height: 70vh;
-            object-fit: contain;
+            gap: 20px;
         }
 
-        /* Buttons */
-        .btn {
+        .input-group { position: relative; }
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-gold);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .input-group input {
             width: 100%;
-            padding: 12px 20px;
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-pill);
+            color: #fff;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent-gold);
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 0 15px rgba(184, 139, 75, 0.2);
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        /* Premium Buttons */
+        .btn-premium {
+            padding: 14px 28px;
             border: none;
-            border-radius: 10px;
+            border-radius: var(--radius-pill);
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 8px;
-            font-family: 'Inter', sans-serif;
+            transition: var(--transition);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-        }
-        .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
-        .btn-scan { background: linear-gradient(135deg, #00b09b, #96c93d); color: #000; }
-        .btn-save { background: linear-gradient(135deg, #f5af19, #f12711); color: #fff; }
-        .btn-export { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
-        .btn-scan:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,176,155,0.3); }
-        .btn-save:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(241,39,17,0.3); }
-
-        /* Form Fields */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .form-group { margin-bottom: 8px; }
-        .form-group.full { grid-column: span 2; }
-        .form-group label {
-            display: block;
-            font-size: 10px;
-            font-weight: 600;
-            color: #777;
-            margin-bottom: 4px;
+            gap: 10px;
             text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-        .form-group input {
-            width: 100%;
-            padding: 10px 12px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
+
+        .btn-gold { 
+            background: var(--gradient-gold); 
+            color: #000;
+            box-shadow: 0 4px 15px rgba(184, 139, 75, 0.3);
+        }
+        .btn-gold:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(184, 139, 75, 0.4); }
+        
+        .btn-out {
+            background: transparent;
+            border: 1px solid var(--border-color);
             color: #fff;
-            font-size: 14px;
-            transition: border-color 0.3s;
         }
-        .form-group input:focus { outline: none; border-color: #f5af19; }
+        .btn-out:hover:not(:disabled) { border-color: var(--accent-gold); background: rgba(184, 139, 75, 0.05); }
 
-        /* History Table */
-        .history-card { margin: 0 20px 40px; }
-        .history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        .history-table th { background: rgba(255,255,255,0.06); padding: 12px; text-align: left; color: #888; text-transform: uppercase; font-size: 10px; }
-        .history-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
-        .history-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .btn-teal {
+            background: var(--accent-teal);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0, 255, 209, 0.2);
+        }
+        .btn-teal:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 255, 209, 0.3); }
 
-        /* Raw Text Area */
-        .raw-text-card { margin-top: 16px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px; }
-        .raw-text-card pre { font-family: 'Consolas', monospace; font-size: 11px; color: #888; max-height: 150px; overflow-y: auto; white-space: pre-wrap; }
+        .btn-premium:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
 
-        /* Toast */
-        .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 24px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 1000; transform: translateY(100px); opacity: 0; transition: all 0.4s ease; }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        .toast.success { background: #00e676; color: #000; }
-        .toast.error { background: #ff1744; color: #fff; }
+        /* History Table Redesign */
+        .history-wrap { margin-top: 40px; }
+        .modern-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .modern-table th { padding: 16px; text-align: left; font-size: 11px; color: var(--accent-gold); text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
+        .modern-table td { padding: 16px; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .modern-table tr:hover td { color: #fff; background: rgba(255,255,255,0.01); }
 
-        /* Spinner Small */
-        .spin { animation: rotate 1s linear infinite; display: inline-block; }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--card-bg);
+            border: 1px solid var(--accent-gold);
+            padding: 16px 32px;
+            border-radius: var(--radius-pill);
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            transform: translateX(120%);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 9999;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-color: var(--accent-teal); color: var(--accent-teal); }
+
+        /* Utils */
+        .spin { animation: spin 1.2s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        @media (max-width: 1400px) {
+            .container { grid-template-columns: 320px 1fr; }
+            .container > :nth-child(3) { grid-column: 1 / -1; }
+        }
 
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>🍜 Mae Thai — K-Scan Pro</h1>
+<nav class="nav fade-in">
+    <h1><span style="font-size: 24px;">🏛️</span> K-Scan <span style="font-weight: 100; opacity: 0.5;">Intelligence</span></h1>
     <div class="status">
-        <span><span class="status-dot {{ 'green' if ocr_available else 'red' }}"></span>OCR {{ 'Bereit' if ocr_available else 'Offline' }}</span>
-        <span id="globalStats">📋 <strong id="totalCount">{{ receipt_count }}</strong> Belege gesamt</span>
+        <span><span class="status-dot {{ 'green' if ocr_available else 'red' }}"></span> System {{ 'Aktiv' if ocr_available else 'Offline' }}</span>
+        <span id="globalStats">Processed: <strong id="totalCount" style="color: var(--accent-gold);">{{ receipt_count }}</strong></span>
     </div>
-</div>
+</nav>
 
-<div class="main">
-    <!-- LEFT: Batch Queue -->
-    <div class="card">
-        <h2>Queue <span id="queueCount">0</span></h2>
+<div class="container">
+    <!-- COLUMN 1: QUEUE -->
+    <div class="glass-card fade-in" style="animation-delay: 0.1s;">
+        <h2>Intelligence Queue <span id="queueCount" style="opacity: 0.5;">0</span></h2>
         
-        <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-            <div class="icon">📥</div>
-            <p>Bilder hier ablegen<br>oder klicken</p>
+        <div class="drop-area" id="dropzone" onclick="document.getElementById('fileInput').click()">
+            <div class="icon">✨</div>
+            <p>Dateien hineinziehen<br>oder anklicken</p>
         </div>
         <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
 
-        <div class="queue-list" id="queueList">
-            <!-- Items via JS -->
-            <div style="text-align: center; color: #555; padding: 40px 0;">Keine Bilder geladen.</div>
+        <div class="queue-items" id="queueList">
+            <div style="text-align: center; color: var(--text-secondary); padding: 60px 0; font-size: 13px; font-weight: 300;">Warten auf Input...</div>
         </div>
 
-        <button class="btn btn-scan" id="btnScanAll" disabled onclick="scanAll()">
-            <span>🚀</span> Alle parallel scannen
+        <button class="btn-premium btn-gold" id="btnScanAll" disabled onclick="scanAll()">
+            <span>🚀</span> Scan All
         </button>
         
-        <button class="btn btn-export" onclick="exportExcel()">
-            <span>📊</span> Monats-Excel exportieren
+        <button class="btn-premium btn-out" style="margin-top: 12px;" onclick="exportExcel()">
+            <span>📦</span> Export Excel
         </button>
     </div>
 
-    <!-- MIDDLE: Preview -->
-    <div class="card">
-        <h2>Vorschau</h2>
-        <div class="image-container" id="imageContainer">
-            <div style="color: #444; text-align: center;">Wählen Sie einen Beleg aus der Queue.</div>
+    <!-- COLUMN 2: FOCUS -->
+    <div class="glass-card fade-in" style="animation-delay: 0.2s;">
+        <h2>Visual Analysis</h2>
+        <div class="preview-box" id="imageContainer">
+            <div style="color: #222; text-transform: uppercase; letter-spacing: 0.3em; font-size: 10px;">No Active Source</div>
         </div>
-        <div class="raw-text-card">
-            <pre id="rawText">- Kein Text vorhanden -</pre>
+        <div class="text-log">
+            <pre id="rawText">// Ready for deep scan...</pre>
         </div>
     </div>
 
-    <!-- RIGHT: Edit & Save -->
-    <div class="card">
-        <h2>Prüfung & Details</h2>
-        <div class="form-grid">
-            <div class="form-group full">
-                <label>Händler</label>
-                <input type="text" id="f_haendler">
+    <!-- COLUMN 3: DATA -->
+    <div class="glass-card fade-in" style="animation-delay: 0.3s;">
+        <h2>Data Extraction</h2>
+        <div class="form-layout">
+            <div class="input-group">
+                <label>Merchant</label>
+                <input type="text" id="f_haendler" placeholder="...">
             </div>
-            <div class="form-group">
-                <label>Datum</label>
-                <input type="text" id="f_datum">
+            
+            <div class="grid-2">
+                <div class="input-group">
+                    <label>Date</label>
+                    <input type="text" id="f_datum" placeholder="DD.MM.YYYY">
+                </div>
+                <div class="input-group">
+                    <label>Total (€)</label>
+                    <input type="text" id="f_brutto" placeholder="0.00">
+                </div>
             </div>
-            <div class="form-group">
-                <label>Brutto (€)</label>
-                <input type="text" id="f_brutto">
+
+            <div class="grid-2">
+                <div class="input-group">
+                    <label>Net (€)</label>
+                    <input type="text" id="f_netto" placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label>Cat.</label>
+                    <input type="text" id="f_kategorie" value="Lebensmittel">
+                </div>
             </div>
-            <div class="form-group">
-                <label>Netto (€)</label>
-                <input type="text" id="f_netto">
+
+            <div class="grid-2">
+                <div class="input-group">
+                    <label>VAT 7%</label>
+                    <input type="text" id="f_steuer7" placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label>VAT 19%</label>
+                    <input type="text" id="f_steuer19" placeholder="0.00">
+                </div>
             </div>
-            <div class="form-group">
-                <label>Steuer 7% (€)</label>
-                <input type="text" id="f_steuer7">
-            </div>
-            <div class="form-group">
-                <label>Steuer 19% (€)</label>
-                <input type="text" id="f_steuer19">
-            </div>
-            <div class="form-group full">
-                <label>Kategorie</label>
-                <input type="text" id="f_kategorie" value="Lebensmittel">
-            </div>
+
+            <button class="btn-premium btn-teal" style="margin-top: 10px;" id="btnSaveCurrent" disabled onclick="saveCurrent()">
+                <span>🎯</span> Confirm & Save
+            </button>
         </div>
-        
-        <button class="btn btn-save" id="btnSaveCurrent" disabled onclick="saveCurrent()">
-            <span>✅</span> Beleg speichern
-        </button>
-        
-        <div style="margin-top: auto; padding-top: 20px;">
-            <div style="font-size: 11px; color: #666; text-align: center;">
-                Tipp: Alle grünen Belege sind bereits korrekt erkannt.
-            </div>
+
+        <div style="margin-top: auto; padding-top: 30px; text-align: center;">
+            <p style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5;">
+                Engine v2.1.0 • Neural Finance
+            </p>
         </div>
     </div>
 </div>
 
-<div class="history-card card history-section">
-    <h2>Letzte Buchungen</h2>
-    <table class="history-table">
+<div class="history-wrap glass-card container fade-in" style="animation-delay: 0.4s; display: block;">
+    <h2>Registry Audit</h2>
+    <table class="modern-table">
         <thead>
             <tr>
-                <th>Datum</th>
-                <th>Händler</th>
-                <th>Brutto</th>
-                <th>Netto</th>
-                <th>MwSt 7%</th>
-                <th>MwSt 19%</th>
-                <th>Kategorie</th>
+                <th>Date</th>
+                <th>Merchant</th>
+                <th>Gross</th>
+                <th>Net</th>
+                <th>7%</th>
+                <th>19%</th>
+                <th>Category</th>
             </tr>
         </thead>
         <tbody id="historyBody"></tbody>
@@ -376,28 +501,28 @@
 
     function renderQueue() {
         if (queue.length === 0) {
-            queueList.innerHTML = '<div style="text-align: center; color: #555; padding: 40px 0;">Keine Bilder geladen.</div>';
+            queueList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 60px 0; font-size: 13px; font-weight: 300;">Warten auf Input...</div>';
             return;
         }
         
         queueList.innerHTML = '';
         queue.forEach((item, index) => {
             const div = document.createElement('div');
-            div.className = `queue-item ${item.status} ${index === currentIndex ? 'active' : ''}`;
+            div.className = `q-item ${item.status} ${index === currentIndex ? 'active' : ''}`;
             div.onclick = () => selectItem(index);
             
             let statusIcon = '⏳';
-            if (item.status === 'scanning') statusIcon = '<span class="spin">🔄</span>';
-            if (item.status === 'done') statusIcon = '✅';
+            if (item.status === 'scanning') statusIcon = '<span class="status-dot green spin"></span>';
+            if (item.status === 'done' || item.status === 'saved') statusIcon = '✨';
             if (item.status === 'error') statusIcon = '❌';
 
             div.innerHTML = `
                 <img src="${item.imgUrl}">
-                <div class="info">
-                    <div class="name">${item.file.name}</div>
-                    <div class="status">${statusText(item.status)}</div>
+                <div class="meta">
+                    <div class="filename">${item.file.name}</div>
+                    <div class="status-text">${statusText(item.status)}</div>
                 </div>
-                <div class="status-icon">${statusIcon}</div>
+                <div>${statusIcon}</div>
             `;
             queueList.appendChild(div);
         });
@@ -405,10 +530,11 @@
     }
 
     function statusText(s) {
-        if (s === 'waiting') return 'Wartet...';
-        if (s === 'scanning') return 'Scanning...';
-        if (s === 'done') return 'Fertig';
-        if (s === 'error') return 'Fehler';
+        if (s === 'waiting') return 'Ready to scan';
+        if (s === 'scanning') return 'Analyzing patterns...';
+        if (s === 'done') return 'Analysis complete';
+        if (s === 'saved') return 'Registry updated';
+        if (s === 'error') return 'Extraction failed';
         return '';
     }
 
@@ -418,8 +544,8 @@
         const item = queue[index];
         
         // UI Update
-        document.getElementById('imageContainer').innerHTML = `<img src="${item.imgUrl}">`;
-        document.getElementById('rawText').textContent = item.rawText || '- Kein Text vorhanden -';
+        document.getElementById('imageContainer').innerHTML = `<img src="${item.imgUrl}" class="fade-in">`;
+        document.getElementById('rawText').textContent = item.rawText || '// Waiting for neural processor...';
         
         if (item.data) {
             document.getElementById('f_haendler').value = item.data.Haendler || '';
@@ -431,7 +557,6 @@
             document.getElementById('f_kategorie').value = item.data.Kategorie || 'Lebensmittel';
             document.getElementById('btnSaveCurrent').disabled = false;
         } else {
-            // Felder leeren außer Kategorie
             ['f_haendler','f_datum','f_brutto','f_netto','f_steuer7','f_steuer19'].forEach(id => {
                document.getElementById(id).value = '';
             });
@@ -440,13 +565,12 @@
         renderQueue();
     }
 
-    // === Parallel Scan ===
     async function scanAll() {
         const toScan = queue.filter(i => i.status === 'waiting' || i.status === 'error');
         if (toScan.length === 0) return;
 
         btnScanAll.disabled = true;
-        btnScanAll.innerHTML = '<span class="spin">🔄</span> Parallele Verarbeitung läuft...';
+        btnScanAll.innerHTML = '<span class="spin">🔄</span> Processing...';
 
         const formData = new FormData();
         toScan.forEach(item => {
@@ -460,7 +584,6 @@
             const result = await res.json();
 
             if (result.success) {
-                // Ergebnisse zuordnen
                 result.results.forEach((resItem, idx) => {
                     const queueItem = toScan[idx];
                     if (resItem.success) {
@@ -471,23 +594,22 @@
                         queueItem.status = 'error';
                     }
                 });
-                showToast(`${result.results.length} Belege verarbeitet!`, 'success');
+                showToast(`${result.results.length} Belege analysiert`, 'success');
             } else {
                 showToast(result.error || 'Server Fehler', 'error');
                 toScan.forEach(i => i.status = 'error');
             }
         } catch (err) {
-            showToast('Verbindungsfehler: ' + err.message, 'error');
+            showToast('Connection failed', 'error');
             toScan.forEach(i => i.status = 'error');
         } finally {
             btnScanAll.disabled = false;
-            btnScanAll.innerHTML = '<span>🚀</span> Alle parallel scannen';
+            btnScanAll.innerHTML = '<span>🚀</span> Scan All';
             renderQueue();
             if (currentIndex !== -1) selectItem(currentIndex);
         }
     }
 
-    // === Save & Export ===
     async function saveCurrent() {
         if (currentIndex === -1) return;
         const item = queue[currentIndex];
@@ -510,16 +632,14 @@
         const result = await res.json();
 
         if (result.success) {
-            showToast('Gespeichert!', 'success');
+            showToast('Registry Updated', 'success');
             document.getElementById('totalCount').textContent = result.receipt_count;
             loadHistory();
-            
-            // Markiere als gespeichert in der Queue
-            item.status = 'saved'; // Optionaler Status
-            
-            // Automatisch zum nächsten springen
+            item.status = 'saved';
             if (currentIndex < queue.length - 1) {
-                selectItem(currentIndex + 1);
+                setTimeout(() => selectItem(currentIndex + 1), 500);
+            } else {
+                renderQueue();
             }
         } else {
             showToast(result.error, 'error');
@@ -530,10 +650,10 @@
         const res = await fetch('/api/export', { method: 'POST' });
         const result = await res.json();
         if (result.success) {
-            showToast('Excel erstellt!', 'success');
+            showToast('Excel Report Generated', 'success');
             window.open('/download/' + result.file, '_blank');
         } else {
-            showToast(result.error, 'error');
+            showToast('Export failed', 'error');
         }
     }
 
@@ -542,17 +662,16 @@
         const data = await res.json();
         const body = document.getElementById('historyBody');
         body.innerHTML = '';
-        // Zeige nur die letzten 15
-        data.reverse().slice(0, 15).forEach(r => {
+        data.reverse().slice(0, 10).forEach(r => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${r.Datum}</td>
-                <td>${r.Haendler || r.Händler}</td>
-                <td>${r.Brutto} €</td>
+                <td><span style="color:var(--text-primary); font-weight:600;">${r.Haendler || r.Händler}</span></td>
+                <td style="color:var(--accent-gold);">${r.Brutto} €</td>
                 <td>${r.Netto} €</td>
-                <td>${r.Steuer_7} €</td>
-                <td>${r.Steuer_19} €</td>
-                <td>${r.Kategorie}</td>
+                <td>${r.Steuer_7}</td>
+                <td>${r.Steuer_19}</td>
+                <td><span style="font-size:10px; padding:2px 8px; border:1px solid var(--border-color); border-radius:10px;">${r.Kategorie}</span></td>
             `;
             body.appendChild(tr);
         });
