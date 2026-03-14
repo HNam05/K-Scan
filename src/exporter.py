@@ -42,7 +42,7 @@ class ReportExporter:
         
         for r_idx, receipt in enumerate(all_receipts, start=2):
             row_data = [
-                receipt.get("Händler", ""),
+                receipt.get("Haendler") or receipt.get("Händler", ""),
                 receipt.get("Datum", ""),
             ]
             

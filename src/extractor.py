@@ -39,27 +39,44 @@ class ReceiptExtractor:
         self.amount_pattern = re.compile(r'(\d+[.,]\d{2})')
 
         # Summe-Schluesselwoerter (SEHR robust gegen OCR-Fehler)
-        # "Summe", "Sume", "Sar" (OCR-Fehler fuer Summe), "zu zahlen", etc.
+        # "Summe", "Sume", "Sar", "Gesamtbetrag", "zu zahlen", etc.
         self.sum_keywords = re.compile(
             r'(?:'
-            r'zu\s*zahlen|zuzahlen|zu\s*bezahlen'  # "zu zahlen" Varianten
+            r'zu\s*bezahlen|zu\s*zahlen|zuzahlen'  # "zu zahlen" Varianten
             r'|s[ua][mr](?:me)?'                     # "Summe", "Sume", "Sar", "Sum"
-            r'|gesamt|total|betrag'                   # andere Keywords
+            r'|gesantbetrag|gesamtbetrag|ges\.?betrag' # REWE / Gesamtbetrag
+            r'|total|betrag'                         # andere Keywords
             r'|zwischensumme'                         # Zwischensumme
+            r'|endbetrag|endsumme'                   # Endbetrag
             r')'
             r'\s*[:\-—=]?\s*(\d+[.,]\d{2})',
             re.IGNORECASE
         )
 
-        # "Kartenzahlung" gefolgt von Betrag (zuverlaesSiger als Summe)
+        # "Kartenzahlung" / "EC-Cash" gefolgt von Betrag (zuverlaessiger Indikator)
         self.card_payment = re.compile(
-            r'Kartenzahlung\s+(\d+[.,]\d{2})',
+            r'(?:Kartenzahlung|EC-Cash|Geg\.\s*EC-Cash|girocard)\s*[:\-—=]?\s*(\d+[.,]\d{2})',
+            re.IGNORECASE
+        )
+
+        # Barzahlung ausschließen (wenn "Bar" oder "Gegeben" davor steht)
+        self.payment_keywords = re.compile(
+            r'(?:Bar|Gegeben|Geg\.)\s*[:\-—=]?\s*(\d+[.,]\d{2})',
             re.IGNORECASE
         )
 
         # "EUR" gefolgt von Betrag (z.B. "EUR 58,14")
         self.eur_amount = re.compile(
             r'EUR\s+(\d+[.,]\d{2})',
+            re.IGNORECASE
+        )
+
+        # Steuer-Zeilen Typ 1 (Kaufland/Lidl/Rewe):
+        # "A 19,00% 9,42 7,92 1,50"
+        # "B 7,0% 5,61 0,33 6,00"
+        # "Gesantbetrag 6,65 0,59 7,24"
+        self.tax_table_line = re.compile(
+            r'(?:[AB]=?|Gesantbetrag|Gesamtbetrag)\s*(\d*[.,]?\d*\s*%?)?\s+(\d+[.,]\d{2})\s+(\d+[.,]\d{2})\s+(\d+[.,]\d{2})',
             re.IGNORECASE
         )
 
@@ -91,11 +108,29 @@ class ReceiptExtractor:
 
     def _find_merchant(self, text):
         """Sucht nach bekannten Haendlernamen im Text."""
+        lines = text.split('\n')
+        # Die ersten 10 Zeilen sind meist entscheidend fuer den Haendler
+        header_text = "\n".join(lines[:10]).upper()
         text_upper = text.upper()
+
+        if "V-MARKT" in header_text or "V-MARKT" in text_upper:
+            return "V-Markt"
+        if "REWE" in header_text or "REMWE" in header_text:
+            return "REWE"
+        if "LIDL" in header_text or "LID)" in header_text:
+            return "Lidl"
+        if "KAUFLAND" in header_text:
+            return "Kaufland"
+        
+        for merchant in KNOWN_MERCHANTS:
+            if merchant.upper() in header_text:
+                return MERCHANT_CORRECTIONS.get(merchant, merchant)
+        
+        # Fallback auf gesamten Text
         for merchant in KNOWN_MERCHANTS:
             if merchant.upper() in text_upper:
-                # Korrektur von OCR-Tippfehlern
                 return MERCHANT_CORRECTIONS.get(merchant, merchant)
+        
         # Fallback: Erste nicht-leere Zeile mit > 3 sinnvollen Zeichen
         for line in text.split('\n'):
             line = line.strip()
@@ -127,53 +162,74 @@ class ReceiptExtractor:
     def _find_total(self, text):
         """
         Findet den Gesamtbetrag - mehrstufiger Ansatz:
-        1. "Kartenzahlung" Betrag (sehr zuverlaessig)
-        2. "Summe/zu zahlen" Betrag
-        3. Groesster wiederholt vorkommender Betrag
+        1. Explizite "Summe" / "Gesamtbetrag" (sehr zuverlaessig)
+        2. "ZU BEZAHLEN" (hohe Prioritaet)
+        3. Kartenzahlung (EC-Cash/Girocard)
+        4. Barzahlung (als Fallback, aber niedriger als Summe)
         """
+        # Wir sammeln alle moeglichen Betraege mit Gewichten
         candidates = []
 
         # 1. "ZU BEZAHLEN" / "zu zahlen" (hoechste Prioritaet!)
+        # Erweitert um moegliche OCR-Sonderzeichen am Ende (+, *, etc.)
         zu_zahlen = re.search(
-            r'(?:zu\s*bezahlen|zu\s*zahlen|zuzahlen)\s*[:\-—=]?\s*(\d+[.,]\d{2})',
+            r'(?:zu\s*bezahlen|zu\s*zahlen|zuzahlen)\s*[:\-—=*]?\s*(\d+[.,]\d{2})',
             text, re.IGNORECASE
         )
         if zu_zahlen:
             val = self._parse_amount(zu_zahlen.group(1))
             if val > 0:
-                return val  # Direkt zurueckgeben, hoechste Prioritaet
+                # Wir merken uns das, geben aber nicht sofort zurueck, 
+                # um es mit 'Summe' zu vergleichen (Gewicht 150)
+                candidates.append((val, 150))
 
-        # 2. Kartenzahlung
-        for match in self.card_payment.finditer(text):
-            val = self._parse_amount(match.group(1))
-            if val > 0:
-                candidates.append(("Kartenzahlung", val))
-
-        # 3. Summe-Keywords
+        # 2. Summen-Keywords (höchste Priorität)
         for match in self.sum_keywords.finditer(text):
             val = self._parse_amount(match.group(1))
-            if val > 0:
-                candidates.append(("Summe", val))
+            if val > 0.1:
+                label = match.group(0).lower()
+                if "zwischen" in label:
+                    candidates.append((val, 50))  # Zwischensumme ist unsicherer
+                else:
+                    candidates.append((val, 100))
 
-        # 4. EUR-Betraege
+        # 3. Kartenzahlung / EC-Cash
+        for match in self.card_payment.finditer(text):
+            val = self._parse_amount(match.group(1))
+            if val > 0.1:
+                candidates.append((val, 90))
+
+        # 4. Barzahlung (niedrigere Priorität, oft "Gegeben")
+        for match in self.payment_keywords.finditer(text):
+            val = self._parse_amount(match.group(1))
+            if val > 0.1:
+                candidates.append((val, 40))
+
+        # 5. Betrag nach "EUR"
         for match in self.eur_amount.finditer(text):
             val = self._parse_amount(match.group(1))
-            if val > 0:
-                candidates.append(("EUR", val))
+            if val > 0.1:
+                candidates.append((val, 70))
 
-        if candidates:
-            # Haeufigster Betrag unter den Kandidaten gewinnt
-            from collections import Counter
-            amounts = [c[1] for c in candidates]
-            count = Counter(amounts)
-            most_common_val, most_common_count = count.most_common(1)[0]
-            if most_common_count >= 2:
-                return most_common_val
-            # Sonst: Kartenzahlung hat Prioritaet
-            for label, val in candidates:
-                if label == "Kartenzahlung":
-                    return val
-            return candidates[0][1]
+        # 6. Speziell REWE: Betrag in der letzten Zeile der Steuer-Tabelle
+        tax_matches = list(self.tax_table_line.finditer(text))
+        if tax_matches:
+            # Letzter Eintrag in der Tabelle ist oft die Gesamtsumme
+            last_match = tax_matches[-1]
+            val = self._parse_amount(last_match.group(4))
+            candidates.append((val, 110)) # Sehr verlässlich bei REWE/Lidl
+
+        if not candidates:
+            # Fallback: Groesster Betrag im Text
+            all_amounts = [self._parse_amount(m) for m in self.amount_pattern.findall(text)]
+            valid_amounts = [v for v in all_amounts if 0.1 < v < 5000]
+            if valid_amounts:
+                return max(valid_amounts)
+            return 0.0
+
+        # Wähle den Kandidaten mit dem höchsten Gewicht
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return candidates[0][0]
 
         # 4. Fallback: Alle Betraege, groessten nehmen (aber < 10000)
         amounts = []
@@ -201,26 +257,46 @@ class ReceiptExtractor:
         """Findet Steuerbetraege (7% und 19%) aus den MwSt-Zeilen."""
         steuer_7 = 0.0
         steuer_19 = 0.0
-        netto = 0.0
 
-        # Kaufland-Format: "A 19,00% 9,42 7,92 1,50" / "B 7,00% 48,72 45,53 3,19"
-        for match in self.kaufland_tax.finditer(text):
-            letter = match.group(1).upper()
-            pct = int(match.group(2))
-            brutto_tax = self._parse_amount(match.group(3))
-            netto_tax = self._parse_amount(match.group(4))
-            steuer_val = self._parse_amount(match.group(5))
+        # Tabellarische Auswertung (Lidl, Rewe, Kaufland)
+        for match in self.tax_table_line.finditer(text):
+            label = match.group(0).lower()
+            tax_pct_str = match.group(1) or ""
+            # steuer_val = self._parse_amount(match.group(3)) # Oft Spalte 3 (MwSt)
 
-            if pct == 19 or letter == "A":
-                steuer_19 = steuer_val
-            elif pct == 7 or letter == "B":
-                steuer_7 = steuer_val
+            # Wir suchen gezielt nach den Steuerbeträgen in den Spalten
+            # In REWE-Tabelle: | Netto | Steuer | Brutto |
+            # In Lidl-Tabelle: | MwSt | Netto | Brutto |
+            try:
+                val1 = self._parse_amount(match.group(2))
+                val2 = self._parse_amount(match.group(3))
+                val3 = self._parse_amount(match.group(4))
+                
+                # Wenn val1 + val2 == val3, dann ist val2 die Steuer und val1 der Netto
+                # ODER wenn val1 < val2 und val2 + val1 == val3 (Lidl)
+                steuer_val = 0.0
+                if abs((val1 + val2) - val3) < 0.05:
+                    steuer_val = min(val1, val2) # Die Steuer ist der kleinere Teil
+                else:
+                    steuer_val = val1 # Fallback
+                
+                if "19" in tax_pct_str or "a" in label:
+                    steuer_19 = steuer_val
+                elif "7" in tax_pct_str or "b" in label:
+                    steuer_7 = steuer_val
+            except Exception:
+                pass
 
-        # Lidl-Format: "A 7% 0,74 10,62 11,36"
+        # Fallback auf alte Spezialsuchen wenn nichts gefunden
         if steuer_7 == 0.0 and steuer_19 == 0.0:
-            match = self.lidl_tax.search(text)
-            if match:
-                steuer_7 = self._parse_amount(match.group(1))
+            # V-Markt MwSt-Format
+            for match in self.vmarkt_tax.finditer(text):
+                letter = match.group(1).upper()
+                pct = int(match.group(2))
+                if pct == 19 or letter == "B":
+                    steuer_19 = self._parse_amount(match.group(5))
+                elif pct == 7:
+                    steuer_7 = self._parse_amount(match.group(5))
 
         # V-Markt-Format
         if steuer_7 == 0.0 and steuer_19 == 0.0:
