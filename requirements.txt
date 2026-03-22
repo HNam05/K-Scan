@@ -1,5 +1,6 @@
+flask
 customtkinter
 pandas
 openpyxl
-pdfkit
+reportlab
 Pillow

@@ -367,8 +367,29 @@
             <span>🚀</span> Scan All
         </button>
         
-        <button class="btn-premium btn-out" style="margin-top: 12px;" onclick="exportExcel()">
-            <span>📦</span> Export Excel
+        <!-- Monatsauswahl -->
+        <div style="margin-top: 16px; margin-bottom: 8px;">
+            <label style="font-size: 10px; font-weight: 600; color: var(--accent-gold); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 6px;">Abrechnungsmonat</label>
+            <input type="month" id="monthPicker"
+                style="width: 100%; padding: 10px 16px; background: rgba(255,255,255,0.04);
+                       border: 1px solid var(--border-color); border-radius: var(--radius-pill);
+                       color: #fff; font-size: 13px; font-family: 'Inter', sans-serif;
+                       cursor: pointer; outline: none;"
+                onfocus="this.style.borderColor='var(--accent-gold)'"
+                onblur="this.style.borderColor='var(--border-color)'">
+        </div>
+
+        <button class="btn-premium btn-out" style="margin-top: 4px;" onclick="exportExcel()">
+            <span>📊</span> Export Excel
+        </button>
+
+        <button class="btn-premium" style="margin-top: 10px;
+                background: linear-gradient(135deg, #c0392b, #922b21);
+                color: #fff; box-shadow: 0 4px 15px rgba(192,57,43,0.3);"
+            onclick="exportPdf()"
+            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(192,57,43,0.4)'"
+            onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 15px rgba(192,57,43,0.3)'">
+            <span>📄</span> Export PDF (DIN A4)
         </button>
     </div>
 
@@ -647,13 +668,34 @@
     }
 
     async function exportExcel() {
-        const res = await fetch('/api/export', { method: 'POST' });
+        const month = document.getElementById('monthPicker').value || null;
+        const res = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month })
+        });
         const result = await res.json();
         if (result.success) {
-            showToast('Excel Report Generated', 'success');
+            showToast('✅ Excel Report erstellt', 'success');
             window.open('/download/' + result.file, '_blank');
         } else {
-            showToast('Export failed', 'error');
+            showToast('❌ ' + (result.error || 'Export fehlgeschlagen'), 'error');
+        }
+    }
+
+    async function exportPdf() {
+        const month = document.getElementById('monthPicker').value || null;
+        const res = await fetch('/api/export_pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month })
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast('✅ PDF Report erstellt', 'success');
+            window.open('/download/' + result.file, '_blank');
+        } else {
+            showToast('❌ ' + (result.error || 'PDF fehlgeschlagen'), 'error');
         }
     }
 
@@ -683,6 +725,13 @@
         t.className = 'toast ' + type + ' show';
         setTimeout(() => t.classList.remove('show'), 3000);
     }
+
+    // Aktuellen Monat als Default setzen
+    (function() {
+        const now = new Date();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('monthPicker').value = `${now.getFullYear()}-${mm}`;
+    })();
 
     loadHistory();
 </script>

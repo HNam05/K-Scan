@@ -155,10 +155,29 @@ def save_receipt():
 
 @app.route("/api/export", methods=["POST"])
 def export_excel():
-    """Generiert die Excel-Monatsabrechnung."""
+    """Generiert die Excel-Monatsabrechnung. Optional: {'month': 'YYYY-MM'}"""
     try:
+        body = request.get_json(silent=True) or {}
+        month = body.get("month") or None
         exp = ReportExporter()
-        output_file = exp.generate_excel_report()
+        output_file = exp.generate_excel_report(month=month)
+        return jsonify({
+            "success": True,
+            "file": os.path.basename(output_file),
+            "path": output_file,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/export_pdf", methods=["POST"])
+def export_pdf():
+    """Generiert die DIN A4 PDF-Monatsabrechnung. Optional: {'month': 'YYYY-MM'}"""
+    try:
+        body = request.get_json(silent=True) or {}
+        month = body.get("month") or None
+        exp = ReportExporter()
+        output_file = exp.generate_pdf_report(month=month)
         return jsonify({
             "success": True,
             "file": os.path.basename(output_file),

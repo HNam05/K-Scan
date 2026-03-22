@@ -17,6 +17,12 @@ TESSERACT_PATHS = [
     os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Tesseract-OCR", "tesseract.exe"),
 ]
 
+# Benutzereigener tessdata-Ordner (kein Admin noetig).
+# Wird als TESSDATA_PREFIX gesetzt, wenn deu.traineddata darin liegt.
+_USER_TESSDATA = os.path.join(os.environ.get("APPDATA", ""), "tessdata")
+if os.path.isfile(os.path.join(_USER_TESSDATA, "deu.traineddata")):
+    os.environ["TESSDATA_PREFIX"] = _USER_TESSDATA
+
 
 def _find_tesseract():
     """Sucht Tesseract auf dem System."""
